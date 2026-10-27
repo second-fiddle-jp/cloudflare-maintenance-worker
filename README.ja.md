@@ -39,7 +39,7 @@ Worker は普段リクエストを受けません。対象ホストの Workers R
     "status": "maintenance-worker status"
   },
   "devDependencies": {
-    "cloudflare-maintenance-worker": "0.2.0",
+    "cloudflare-maintenance-worker": "0.2.1",
     "wrangler": "4.123.0"
   }
 }

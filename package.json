@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-maintenance-worker",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A Cloudflare Worker that serves a maintenance page, switched on and off by attaching and detaching its routes",
   "license": "MIT",
   "repository": "github:second-fiddle-jp/cloudflare-maintenance-worker",
@@ -29,6 +29,11 @@
     "wrangler": ">=4"
   },
   "devDependencies": {
-    "wrangler": "4.123.0"
+    "wrangler": "4.150.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "undici": "7.30.1"
+    }
   }
 }

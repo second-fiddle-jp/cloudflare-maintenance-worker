@@ -39,7 +39,7 @@ Create a directory with these four files.
     "status": "maintenance-worker status"
   },
   "devDependencies": {
-    "cloudflare-maintenance-worker": "0.2.0",
+    "cloudflare-maintenance-worker": "0.2.1",
     "wrangler": "4.123.0"
   }
 }
