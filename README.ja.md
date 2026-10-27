@@ -198,7 +198,7 @@ Webhook の送信元や外形監視にも、メンテナンス中は `503` が�
 
 ### 一部のホストだけをメンテナンスにする
 
-environment のうち一部のサイトだけを止めるときは、`on` に `--host` でホストを渡します。`maintenance.config.json` のパターンのうち、そのホストのものだけが付きます。ホストはパターンの最初の `/` より前と完全一致で比べるので、`--host example.com` で `app.example.com` は選ばれません。複数のホストは `--host` を繰り返して渡し、あとから別のホストを `on --host` で足すこともできます。
+environment のうち一部のサイトだけを止めるときは、`on` に `--host` でホストを渡します。`maintenance.config.json` のパターンのうち、そのホストのものだけが付きます。ホストはパターンの最初の `/` より前と、大文字と小文字も区別して完全一致で比べるので、`--host example.com` で `app.example.com` は選ばれません。`*.example.com/*` のようなワイルドカードのパターンは、同じ文字列をシェルでクォートして渡します（`--host '*.example.com'`）。複数のホストは `--host` を繰り返して渡し、あとから別のホストを `on --host` で足すこともできます。
 
 ```bash
 pnpm run on production --host app.example.com

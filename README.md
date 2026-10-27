@@ -198,7 +198,7 @@ Webhook senders and uptime monitors also receive `503` during maintenance. Most 
 
 ### Putting only some hosts into maintenance
 
-To stop only some sites of an environment, give their hosts to `on` with `--host`. Only the patterns of those hosts in `maintenance.config.json` are attached. The host is compared with the part of each pattern before the first `/`, so `--host example.com` does not select `app.example.com`. Repeat `--host` for several hosts, and run `on --host` again later to add another host.
+To stop only some sites of an environment, give their hosts to `on` with `--host`. Only the patterns of those hosts in `maintenance.config.json` are attached. The host is compared with the part of each pattern before the first `/`, exactly and case-sensitively, so `--host example.com` does not select `app.example.com`. For a wildcard pattern such as `*.example.com/*`, pass the same text and quote it in the shell (`--host '*.example.com'`). Repeat `--host` for several hosts, and run `on --host` again later to add another host.
 
 ```bash
 pnpm run on production --host app.example.com

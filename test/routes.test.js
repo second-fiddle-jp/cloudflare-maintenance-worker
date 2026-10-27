@@ -147,6 +147,18 @@ describe('routes', () => {
     assert.match(printed(out), /app\.acme\.test\/\* -> acme-maintenance-live/)
   })
 
+  it('status counts only the patterns of the config and lists routes left from an older config separately', async () => {
+    const cf = fakeCloudflare([
+      { pattern: 'app.acme.test/*', script: SCRIPT },
+      { pattern: 'old.acme.test/*', script: SCRIPT },
+    ])
+    mock.method(globalThis, 'fetch', cf.fetch)
+
+    assert.equal(await routes(['status', 'live'], project()), 0)
+    assert.match(printed(out), /In maintenance: 1 \/ 3 routes/)
+    assert.match(printed(out), /not in maintenance\.config\.json[^\n]*\n {2}old\.acme\.test\/\* -> acme-maintenance-live/)
+  })
+
   it('off removes every route of this Worker after a partial maintenance', async () => {
     const cf = fakeCloudflare([
       { pattern: 'app.acme.test/*', script: SCRIPT },
@@ -182,11 +194,14 @@ describe('routes', () => {
 
   for (const [title, argv, message] of [
     ['a host that the config does not have', ['on', 'live', '--host', 'www.acme.test'], /www\.acme\.test is not in the patterns of live/],
+    ['several hosts that the config does not have', ['on', 'live', '--host', 'a.test', '--host', 'b.test'], /a\.test, b\.test are not in the patterns of live/],
+    ['--host before the environment name', ['on', '--host', 'app.acme.test', 'live'], /Options go after the environment name/],
+    ['an extra argument', ['on', 'live', 'extra'], /Unexpected argument: extra/],
     ['--host without a value', ['on', 'live', '--host'], /--host needs a host/],
     ['--host= with an empty value', ['on', 'live', '--host='], /--host needs a host/],
     ['--host followed by another option', ['on', 'live', '--host', '--host=app.acme.test'], /--host needs a host/],
-    ['--host with off', ['off', 'live', '--host', 'app.acme.test'], /--host can only be used with on/],
-    ['--host with status', ['status', 'live', '--host=app.acme.test'], /--host can only be used with on/],
+    ['--host with off', ['off', 'live', '--host', 'app.acme.test'], /--host can only be used with on, not off\. off always detaches/],
+    ['--host with status', ['status', 'live', '--host=app.acme.test'], /--host can only be used with on, not status\.(?![^\n]*detaches)/],
     ['an unknown option', ['on', 'live', '--dry-run'], /Unknown option: --dry-run/],
   ]) {
     it(`stops before calling the API for ${title}`, async () => {

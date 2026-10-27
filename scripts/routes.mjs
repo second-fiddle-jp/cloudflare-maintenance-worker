@@ -31,7 +31,7 @@ export const parseOptions = (options) => {
       if (host === '') return { error: '--host needs a host, such as --host app.example.com' }
       hosts.push(host)
     } else {
-      return { error: `Unknown option: ${option}` }
+      return { error: option.startsWith('-') ? `Unknown option: ${option}` : `Unexpected argument: ${option}` }
     }
   }
   return { hosts }
@@ -61,14 +61,19 @@ const run = async (argv, dir) => {
   if (problems[envName] !== undefined) fail(`${envName} cannot be operated on because of a configuration error:\n  ${problems[envName]}`)
   const target = environments[envName]
   const usage = `usage: <on|off|status> <${Object.keys(environments).join('|')}> [--host <host> ...]`
+  if (envName?.startsWith('-')) fail(`Options go after the environment name.\n${usage}`)
   if (!['on', 'off', 'status'].includes(command) || target === undefined) fail(usage)
 
   const { hosts, error: optionError } = parseOptions(options)
   if (optionError !== undefined) fail(`${optionError}\n${usage}`)
-  if (hosts.length > 0 && command !== 'on') fail(`--host can only be used with on. off always detaches every route of ${target.script}.\n${usage}`)
+  if (hosts.length > 0 && command !== 'on') {
+    const offNote = command === 'off' ? ` off always detaches every route of ${target.script}.` : ''
+    fail(`--host can only be used with on, not ${command}.${offNote}\n${usage}`)
+  }
   const selected = selectHosts(target.patterns, hosts)
   if (selected.unknown.length > 0) {
-    fail(`${selected.unknown.join(', ')} is not in the patterns of ${envName} in maintenance.config.json:\n${target.patterns.map((p) => `  ${p}`).join('\n')}`)
+    const verb = selected.unknown.length === 1 ? 'is' : 'are'
+    fail(`${selected.unknown.join(', ')} ${verb} not in the patterns of ${envName} in maintenance.config.json:\n${target.patterns.map((p) => `  ${p}`).join('\n')}`)
   }
   // The routes on attaches: every pattern, or only those of the hosts given with --host.
   const onTarget = hosts.length > 0 ? { ...target, patterns: selected.patterns } : target
@@ -111,8 +116,15 @@ const run = async (argv, dir) => {
       console.log(`[${envName}] No maintenance routes (serving normally)`)
       return
     }
-    console.log(`[${envName}] In maintenance: ${ours.length} / ${target.patterns.length} routes`)
-    for (const route of ours) console.log(`  ${route.pattern} -> ${route.script}`)
+    // Count only the patterns of the config, so routes left from an older config do not give counts like 4 / 3.
+    const configured = ours.filter((route) => target.patterns.includes(route.pattern))
+    const leftover = ours.filter((route) => !target.patterns.includes(route.pattern))
+    console.log(`[${envName}] In maintenance: ${configured.length} / ${target.patterns.length} routes`)
+    for (const route of configured) console.log(`  ${route.pattern} -> ${route.script}`)
+    if (leftover.length > 0) {
+      console.log(`[warn] Routes of this Worker that are not in maintenance.config.json (off detaches them too):`)
+      for (const route of leftover) console.log(`  ${route.pattern} -> ${route.script}`)
+    }
   }
 
   if (command === 'on') {
