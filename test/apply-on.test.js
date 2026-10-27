@@ -113,7 +113,7 @@ describe('describeOnFailure', () => {
     const message = describeOnFailure({ ...base, total: 1, error, attached: 0, elsewhere: 2 })
 
     assert.match(message, /No routes were attached for the selected hosts/)
-    assert.match(message, /2 routes attached earlier/)
+    assert.match(message, /Routes attached earlier are still attached \(2\)/)
     assert.match(message, /status production/)
     assert.doesNotMatch(message, /serving normally/)
   })

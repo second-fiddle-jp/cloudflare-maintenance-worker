@@ -105,6 +105,48 @@ describe('routes', () => {
     assert.doesNotMatch(printed(err), /all 1 routes are attached/)
   })
 
+  it('without --host, a failed on still counts every route of this Worker, as before', async () => {
+    const cf = fakeCloudflare([{ pattern: 'old.acme.test/*', script: SCRIPT }])
+    mock.method(globalThis, 'fetch', async (url, init) => {
+      if (init.method === 'POST') {
+        return new Response(JSON.stringify({ success: false, result: null, errors: [{ code: 10000, message: 'Internal' }] }), {
+          status: 500,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      return cf.fetch(url, init)
+    })
+
+    assert.equal(await routes(['on', 'live'], project()), 1)
+    assert.match(printed(err), /Only some hosts are in maintenance/)
+    assert.doesNotMatch(printed(err), /selected hosts/)
+  })
+
+  it('accepts -- anywhere around --host, as pnpm passes it through', async () => {
+    const cf = fakeCloudflare()
+    mock.method(globalThis, 'fetch', cf.fetch)
+
+    assert.equal(await routes(['on', '--', 'live', '--host', '--', 'app.acme.test'], project()), 0)
+    assert.deepEqual(cf.state.posted, ['app.acme.test/*'])
+  })
+
+  it('attaches a host given twice only once', async () => {
+    const cf = fakeCloudflare()
+    mock.method(globalThis, 'fetch', cf.fetch)
+
+    assert.equal(await routes(['on', 'live', '--host', 'app.acme.test', '--host=app.acme.test'], project()), 0)
+    assert.deepEqual(cf.state.posted, ['app.acme.test/*'])
+  })
+
+  it('status reports the partial count and lists the attached routes', async () => {
+    const cf = fakeCloudflare([{ pattern: 'app.acme.test/*', script: SCRIPT }])
+    mock.method(globalThis, 'fetch', cf.fetch)
+
+    assert.equal(await routes(['status', 'live'], project()), 0)
+    assert.match(printed(out), /In maintenance: 1 \/ 3 routes/)
+    assert.match(printed(out), /app\.acme\.test\/\* -> acme-maintenance-live/)
+  })
+
   it('off removes every route of this Worker after a partial maintenance', async () => {
     const cf = fakeCloudflare([
       { pattern: 'app.acme.test/*', script: SCRIPT },
@@ -141,6 +183,8 @@ describe('routes', () => {
   for (const [title, argv, message] of [
     ['a host that the config does not have', ['on', 'live', '--host', 'www.acme.test'], /www\.acme\.test is not in the patterns of live/],
     ['--host without a value', ['on', 'live', '--host'], /--host needs a host/],
+    ['--host= with an empty value', ['on', 'live', '--host='], /--host needs a host/],
+    ['--host followed by another option', ['on', 'live', '--host', '--host=app.acme.test'], /--host needs a host/],
     ['--host with off', ['off', 'live', '--host', 'app.acme.test'], /--host can only be used with on/],
     ['--host with status', ['status', 'live', '--host=app.acme.test'], /--host can only be used with on/],
     ['an unknown option', ['on', 'live', '--dry-run'], /Unknown option: --dry-run/],

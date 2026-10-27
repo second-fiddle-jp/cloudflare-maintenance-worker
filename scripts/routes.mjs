@@ -130,10 +130,12 @@ const run = async (argv, dir) => {
     })
     if (error !== undefined) {
       // A failure response may still have attached the route, so count from a fresh list. If that fails too, treat it as unknown.
-      // Count only the patterns this on tried to attach; routes attached earlier by on --host are reported separately.
+      // With --host, count only the patterns this on tried to attach and report routes attached earlier separately.
+      // Without --host, count every route of this Worker, as before.
       const counts = await listRoutes().then(
         (all) => {
           const ours = planOff(all, onTarget)
+          if (hosts.length === 0) return { attached: ours.length }
           const attached = ours.filter((route) => onTarget.patterns.includes(route.pattern)).length
           return { attached, elsewhere: ours.length - attached }
         },

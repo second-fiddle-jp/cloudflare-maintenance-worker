@@ -42,11 +42,11 @@ export const describeOnFailure = ({ envName, script, error, attached, total, els
   if (attached > 0) {
     return `Only some hosts are in maintenance. Check with status ${envName} and run off ${envName} if needed`
   }
-  if (elsewhere > 0) {
-    return `No routes were attached for the selected hosts. The ${elsewhere} routes attached earlier are still attached, so those hosts stay in maintenance. Check with status ${envName} and run off ${envName} if needed`
-  }
   if (error instanceof ApiError && error.errors.some((e) => e.code === WORKER_NOT_FOUND)) {
     return `Worker ${script} has not been deployed yet. No routes were attached (still serving normally). Run deploy ${envName} first, then run on ${envName} again`
+  }
+  if (elsewhere > 0) {
+    return `No routes were attached for the selected hosts. Routes attached earlier are still attached (${elsewhere}), so those hosts stay in maintenance. Check with status ${envName} and run off ${envName} if needed`
   }
   return 'No routes were attached (still serving normally)'
 }
