@@ -39,7 +39,7 @@ Worker は普段リクエストを受けません。対象ホストの Workers R
     "status": "maintenance-worker status"
   },
   "devDependencies": {
-    "cloudflare-maintenance-worker": "github:second-fiddle-jp/cloudflare-maintenance-worker#v0.1.0",
+    "cloudflare-maintenance-worker": "github:second-fiddle-jp/cloudflare-maintenance-worker#v0.2.0",
     "wrangler": "4.123.0"
   }
 }
@@ -195,6 +195,19 @@ pnpm run status production
 `status` が再び「メンテナンスのルートは無い」と返すことを確かめ、Cookie を持たないブラウザ（シークレットウィンドウなど）でも開けることを確認します。
 
 Webhook の送信元や外形監視にも、メンテナンス中は `503` が返ります。多くの送信元は再送しますが、メンテナンスが長くなるときは再送の上限を確かめておいてください。
+
+### 一部のホストだけをメンテナンスにする
+
+environment のうち一部のサイトだけを止めるときは、`on` に `--host` でホストを渡します。`maintenance.config.json` のパターンのうち、そのホストのものだけが付きます。ホストはパターンの最初の `/` より前と完全一致で比べるので、`--host example.com` で `app.example.com` は選ばれません。複数のホストは `--host` を繰り返して渡し、あとから別のホストを `on --host` で足すこともできます。
+
+```bash
+pnpm run on production --host app.example.com
+pnpm run status production
+```
+
+`status` は、たとえば `In maintenance: 1 / 3 routes` と出し、付いているルートを並べます。`off` は `--host` を受け付けず、いつも Worker のルートを全部外すので、一部だけのメンテナンスも `off production` 一つで抜けられます。environment のパターンに無いホストを渡すと、`on` は何も変えずに止まります。
+
+一部のホストだけを止めてよいのは、作業がそのサイトに閉じているときだけです。サイトどうしが DB を共有していれば、止めていないサイトは作業中も DB を使い続けます。
 
 ## ローカルで確かめる
 

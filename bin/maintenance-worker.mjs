@@ -6,7 +6,7 @@
 import { deploy } from '../scripts/deploy.mjs'
 import { routes } from '../scripts/routes.mjs'
 
-const USAGE = 'usage: maintenance-worker <deploy|on|off|status> <env> [wrangler deploy options]'
+const USAGE = 'usage: maintenance-worker deploy <env> [wrangler deploy options]\n       maintenance-worker <on|off|status> <env> [--host <host> ...]'
 
 // pnpm run on -- <env> passes the -- through, so it may come before the command name too
 const argv = process.argv.slice(2)

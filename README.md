@@ -39,7 +39,7 @@ Create a directory with these four files.
     "status": "maintenance-worker status"
   },
   "devDependencies": {
-    "cloudflare-maintenance-worker": "github:second-fiddle-jp/cloudflare-maintenance-worker#v0.1.0",
+    "cloudflare-maintenance-worker": "github:second-fiddle-jp/cloudflare-maintenance-worker#v0.2.0",
     "wrangler": "4.123.0"
   }
 }
@@ -195,6 +195,19 @@ pnpm run status production
 `status` should again report no maintenance routes. Open the site in a browser without the cookie, such as a private window, to confirm it serves normally.
 
 Webhook senders and uptime monitors also receive `503` during maintenance. Most webhook senders retry, but check their retry limits if the window is long.
+
+### Putting only some hosts into maintenance
+
+To stop only some sites of an environment, give their hosts to `on` with `--host`. Only the patterns of those hosts in `maintenance.config.json` are attached. The host is compared with the part of each pattern before the first `/`, so `--host example.com` does not select `app.example.com`. Repeat `--host` for several hosts, and run `on --host` again later to add another host.
+
+```bash
+pnpm run on production --host app.example.com
+pnpm run status production
+```
+
+`status` then reports, for example, `In maintenance: 1 / 3 routes` and lists the attached routes. `off` takes no `--host` and always detaches every route of the Worker, so a single `off production` ends a partial maintenance too. A host that is not in the patterns of the environment stops `on` before anything is changed.
+
+Stopping only some hosts is safe only for work that is confined to those sites. If the sites share a database, the sites left running keep using it during the work.
 
 ## Trying it locally
 

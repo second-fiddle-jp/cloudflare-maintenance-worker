@@ -107,6 +107,17 @@ describe('describeOnFailure', () => {
     assert.doesNotMatch(message, /deploy /)
   })
 
+  it('with nothing attached this time but routes attached earlier by on --host, says those hosts stay in maintenance', () => {
+    const error = new ApiError('HTTP 500', [{ code: 10000, message: 'Internal' }])
+
+    const message = describeOnFailure({ ...base, total: 1, error, attached: 0, elsewhere: 2 })
+
+    assert.match(message, /No routes were attached for the selected hosts/)
+    assert.match(message, /2 routes attached earlier/)
+    assert.match(message, /status production/)
+    assert.doesNotMatch(message, /serving normally/)
+  })
+
   it('on a network error with zero routes in the fresh list, says nothing was attached', () => {
     const message = describeOnFailure({ ...base, error: new TypeError('fetch failed'), attached: 0 })
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { findShadowingRoutes, planOff, planOn } from '../scripts/route-plan.mjs'
+import { findShadowingRoutes, planOff, planOn, selectHosts } from '../scripts/route-plan.mjs'
 
 const target = { script: 'example-maintenance-production', patterns: ['example.com/*', 'app.example.com/*'] }
 
@@ -45,5 +45,27 @@ describe('findShadowingRoutes', () => {
     const assets = { id: 'r2', pattern: 'assets.example.com/*', script: 'someone-else' }
 
     assert.deepEqual(findShadowingRoutes([assets], target), [])
+  })
+})
+
+describe('selectHosts', () => {
+  const patterns = ['example.com/*', 'app.example.com/*', 'api.example.com/*']
+
+  it('keeps the patterns of the given hosts, in the order of the config', () => {
+    assert.deepEqual(selectHosts(patterns, ['api.example.com', 'example.com']), {
+      patterns: ['example.com/*', 'api.example.com/*'],
+      unknown: [],
+    })
+  })
+
+  it('compares the whole host, so example.com does not match app.example.com', () => {
+    assert.deepEqual(selectHosts(patterns, ['example.com']).patterns, ['example.com/*'])
+  })
+
+  it('returns hosts that no pattern has as unknown', () => {
+    assert.deepEqual(selectHosts(patterns, ['app.example.com', 'www.example.com']), {
+      patterns: ['app.example.com/*'],
+      unknown: ['www.example.com'],
+    })
   })
 })

@@ -29,9 +29,10 @@ export const applyOn = async ({ create, post }) => {
 /**
  * The guidance after on fails part way. attached is the number of this Worker's routes counted from a fresh
  * route list after the failure, or undefined when the list could not be fetched. total is the number of target routes.
+ * Both count only the target patterns. elsewhere is the number of this Worker's other routes, attached earlier by on --host.
  * A failed POST does not prove the route was not attached (a 502 from a proxy, for example), so the count decides.
  */
-export const describeOnFailure = ({ envName, script, error, attached, total }) => {
+export const describeOnFailure = ({ envName, script, error, attached, total, elsewhere = 0 }) => {
   if (attached === undefined) {
     return `Some hosts may be in maintenance. Check with status ${envName} and run off ${envName} if needed`
   }
@@ -40,6 +41,9 @@ export const describeOnFailure = ({ envName, script, error, attached, total }) =
   }
   if (attached > 0) {
     return `Only some hosts are in maintenance. Check with status ${envName} and run off ${envName} if needed`
+  }
+  if (elsewhere > 0) {
+    return `No routes were attached for the selected hosts. The ${elsewhere} routes attached earlier are still attached, so those hosts stay in maintenance. Check with status ${envName} and run off ${envName} if needed`
   }
   if (error instanceof ApiError && error.errors.some((e) => e.code === WORKER_NOT_FOUND)) {
     return `Worker ${script} has not been deployed yet. No routes were attached (still serving normally). Run deploy ${envName} first, then run on ${envName} again`

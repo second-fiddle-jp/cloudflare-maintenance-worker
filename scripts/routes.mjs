@@ -4,7 +4,7 @@
 
 import { loadEnvironments } from './environments.mjs'
 import { ApiError, applyOn, describeOnFailure } from './apply-on.mjs'
-import { findShadowingRoutes, planOff, planOn } from './route-plan.mjs'
+import { findShadowingRoutes, planOff, planOn, selectHosts } from './route-plan.mjs'
 
 const API = 'https://api.cloudflare.com/client/v4'
 
@@ -15,8 +15,32 @@ const fail = (message) => {
 }
 
 /**
+ * Splits the options after the environment name. Only --host <host> / --host=<host> exists, and it may be repeated.
+ * Returns the hosts, or the reason the options cannot be used.
+ */
+export const parseOptions = (options) => {
+  const hosts = []
+  for (let i = 0; i < options.length; i++) {
+    const option = options[i]
+    if (option === '--host') {
+      const host = options[++i]
+      if (host === undefined || host === '' || host.startsWith('-')) return { error: '--host needs a host, such as --host app.example.com' }
+      hosts.push(host)
+    } else if (option.startsWith('--host=')) {
+      const host = option.slice('--host='.length)
+      if (host === '') return { error: '--host needs a host, such as --host app.example.com' }
+      hosts.push(host)
+    } else {
+      return { error: `Unknown option: ${option}` }
+    }
+  }
+  return { hosts }
+}
+
+/**
  * Runs on / off / status and returns the exit code.
- * argv is [command, env]; a -- anywhere is skipped (pnpm passes it through for pnpm run on -- <env>).
+ * argv is [command, env, ...options]; a -- anywhere is skipped (pnpm passes it through for pnpm run on -- <env>).
+ * on --host <host> attaches only the patterns of that host; off always detaches every route of this Worker.
  * dir is the project directory (where maintenance.config.json and wrangler.jsonc are).
  */
 export const routes = async (argv, dir = process.cwd()) => {
@@ -33,12 +57,21 @@ const run = async (argv, dir) => {
   const { zone: zoneName, environments, problems, warnings } = loadEnvironments(dir)
   for (const warning of warnings) console.error(`[warn] ${warning}`)
 
-  const [command, envName] = argv.filter((arg) => arg !== '--')
+  const [command, envName, ...options] = argv.filter((arg) => arg !== '--')
   if (problems[envName] !== undefined) fail(`${envName} cannot be operated on because of a configuration error:\n  ${problems[envName]}`)
   const target = environments[envName]
-  if (!['on', 'off', 'status'].includes(command) || target === undefined) {
-    fail(`usage: <on|off|status> <${Object.keys(environments).join('|')}>`)
+  const usage = `usage: <on|off|status> <${Object.keys(environments).join('|')}> [--host <host> ...]`
+  if (!['on', 'off', 'status'].includes(command) || target === undefined) fail(usage)
+
+  const { hosts, error: optionError } = parseOptions(options)
+  if (optionError !== undefined) fail(`${optionError}\n${usage}`)
+  if (hosts.length > 0 && command !== 'on') fail(`--host can only be used with on. off always detaches every route of ${target.script}.\n${usage}`)
+  const selected = selectHosts(target.patterns, hosts)
+  if (selected.unknown.length > 0) {
+    fail(`${selected.unknown.join(', ')} is not in the patterns of ${envName} in maintenance.config.json:\n${target.patterns.map((p) => `  ${p}`).join('\n')}`)
   }
+  // The routes on attaches: every pattern, or only those of the hosts given with --host.
+  const onTarget = hosts.length > 0 ? { ...target, patterns: selected.patterns } : target
 
   const token = process.env.CLOUDFLARE_API_TOKEN
   if (!token) fail('CLOUDFLARE_API_TOKEN is not set (see the README)')
@@ -67,7 +100,9 @@ const run = async (argv, dir) => {
   const printStatus = async () => {
     const all = await listRoutes()
     const ours = planOff(all, target)
-    const shadowing = findShadowingRoutes(all, target)
+    // While in maintenance, narrower routes matter only on the hosts that are in it. While serving normally, check every host as a preflight.
+    const watched = ours.length > 0 ? { ...target, patterns: ours.map((route) => route.pattern) } : target
+    const shadowing = findShadowingRoutes(all, watched)
     if (shadowing.length > 0) {
       console.log('[warn] These routes belong to other Workers and keep serving during maintenance:')
       for (const route of shadowing) console.log(`  ${route.pattern} -> ${route.script}`)
@@ -82,21 +117,29 @@ const run = async (argv, dir) => {
 
   if (command === 'on') {
     const existing = await listRoutes()
-    const { create, conflicts } = planOn(existing, target)
+    const { create, conflicts } = planOn(existing, onTarget)
     if (conflicts.length > 0) {
       fail(`Another Worker holds the same routes. Nothing was changed:\n${conflicts.map((r) => `  ${r.pattern} -> ${r.script}`).join('\n')}`)
     }
     const { error } = await applyOn({
       create,
       post: async (pattern) => {
-        await api('POST', `/zones/${zoneId}/workers/routes`, { pattern, script: target.script })
+        await api('POST', `/zones/${zoneId}/workers/routes`, { pattern, script: onTarget.script })
         console.log(`[add] ${pattern}`)
       },
     })
     if (error !== undefined) {
       // A failure response may still have attached the route, so count from a fresh list. If that fails too, treat it as unknown.
-      const attached = await listRoutes().then((all) => planOff(all, target).length, () => undefined)
-      fail(`${error.message}\n${describeOnFailure({ envName, script: target.script, error, attached, total: target.patterns.length })}`)
+      // Count only the patterns this on tried to attach; routes attached earlier by on --host are reported separately.
+      const counts = await listRoutes().then(
+        (all) => {
+          const ours = planOff(all, onTarget)
+          const attached = ours.filter((route) => onTarget.patterns.includes(route.pattern)).length
+          return { attached, elsewhere: ours.length - attached }
+        },
+        () => ({ attached: undefined }),
+      )
+      fail(`${error.message}\n${describeOnFailure({ envName, script: onTarget.script, error, total: onTarget.patterns.length, ...counts })}`)
     }
   } else if (command === 'off') {
     for (const route of planOff(await listRoutes(), target)) {
