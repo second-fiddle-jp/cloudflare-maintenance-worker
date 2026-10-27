@@ -1,0 +1,11 @@
+{
+  "zone": "example.com",
+  "environments": {
+    "develop": {
+      "patterns": ["dev.example.com/*"]
+    },
+    "production": {
+      "patterns": ["example.com/*", "www.example.com/*", "api.example.com/*"]
+    }
+  }
+}

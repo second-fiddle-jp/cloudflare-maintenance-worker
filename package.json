@@ -1,0 +1,34 @@
+{
+  "name": "cloudflare-maintenance-worker",
+  "version": "0.1.0",
+  "description": "A Cloudflare Worker that serves a maintenance page, switched on and off by attaching and detaching its routes",
+  "license": "MIT",
+  "repository": "github:second-fiddle-jp/cloudflare-maintenance-worker",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "maintenance-worker": "bin/maintenance-worker.mjs"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "src"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test",
+    "dev": "wrangler dev --env develop",
+    "deploy": "node bin/maintenance-worker.mjs deploy",
+    "on": "node bin/maintenance-worker.mjs on",
+    "off": "node bin/maintenance-worker.mjs off",
+    "status": "node bin/maintenance-worker.mjs status"
+  },
+  "peerDependencies": {
+    "wrangler": ">=4"
+  },
+  "devDependencies": {
+    "wrangler": "4.123.0"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  // A Worker that serves the maintenance page. This is a sample: replace the names and hosts with your own.
+  // Do not add routes here. If you do, every wrangler deploy attaches them and a deploy alone puts the site into maintenance.
+  // Only `maintenance-worker on|off` attaches and detaches routes (see the README).
+  // The Worker name per environment is <name>-<env>. The route scripts derive it the same way, so changing name here is enough.
+  // Keep the env names in sync with environments in maintenance.config.json (the scripts stop when they differ).
+  // vars are not inherited from the top level, so write all of them in every env.
+  "name": "example-maintenance",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-15",
+  "workers_dev": false,
+  "preview_urls": false,
+  // Invocation logs record the request URL, which would contain ?maintenance_bypass=<passphrase> in plain text. Keep them off.
+  "observability": { "enabled": true, "logs": { "invocation_logs": false } },
+  "env": {
+    "develop": {
+      "vars": {
+        "RETRY_AFTER": "3600",
+        "BYPASS_COOKIE": "example_maintenance_bypass_dev",
+        "COOKIE_DOMAIN": ".example.com",
+        "BRAND": "Example"
+      }
+    },
+    "production": {
+      "vars": {
+        "RETRY_AFTER": "3600",
+        "BYPASS_COOKIE": "example_maintenance_bypass",
+        "COOKIE_DOMAIN": ".example.com",
+        "BRAND": "Example"
+      }
+    }
+  }
+}
