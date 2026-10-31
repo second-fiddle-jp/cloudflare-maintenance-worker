@@ -167,7 +167,7 @@ env -u CLOUDFLARE_API_TOKEN pnpm run deploy production
 
 ## メンテナンスに入る・抜ける
 
-まず、その environment に Worker がデプロイ済みであること、今回の合言葉に差し替えたこと、いまが通常稼働であることを確かめます。`status` が「メンテナンスのルートは無い」と返せば通常稼働です。
+まず、その environment に Worker がデプロイ済みであること、今回の合言葉に差し替えたこと、いまが通常稼働であることを確かめます。`status` が「メンテナンスのルートは無い」と返せば通常稼働です。合言葉を差し替える時間が無いときは「[合言葉を決める前に止める（緊急時）](#合言葉を決める前に止める緊急時)」を読んでください。
 
 ```bash
 pnpm run status production
@@ -195,6 +195,20 @@ pnpm run status production
 `status` が再び「メンテナンスのルートは無い」と返すことを確かめ、Cookie を持たないブラウザ（シークレットウィンドウなど）でも開けることを確認します。
 
 Webhook の送信元や外形監視にも、メンテナンス中は `503` が返ります。多くの送信元は再送しますが、メンテナンスが長くなるときは再送の上限を確かめておいてください。
+
+### 合言葉を決める前に止める（緊急時）
+
+障害などで急いで止めるときは、合言葉を決める前に `on` を実行してかまいません。Worker は合言葉の secret をリクエストのたびに読み、`wrangler secret put` は登録した値を持つバージョンをその場でデプロイします。そのため、メンテナンスの途中で登録した合言葉も、ルートを付け直さずにすぐ効きます。合言葉が未設定のあいだは、合言葉でも Cookie でも誰も通れません。
+
+```bash
+pnpm run on production
+openssl rand -hex 32
+env -u CLOUDFLARE_API_TOKEN pnpm exec wrangler secret put BYPASS_SECRET --env production
+```
+
+登録したら、作業者に `https://<ホスト>/?maintenance_bypass=<合言葉>` を渡します。
+
+前回の合言葉が残っていると、`on` を実行したときからその合言葉で通れます。前回の値を知っている人も通れるので、急いでいるときも合言葉は新しい値に差し替えてください。メンテナンスを抜けたあとに `wrangler secret delete BYPASS_SECRET --env production` で消しておけば、次に急いで止めたときも、合言葉を登録するまでは誰も通れない状態から始まります。`ALLOW_IPS` も未設定なら、合言葉を登録するまでは作業者もメンテナンスページで止まります。どちらの場合も、Worker が先にデプロイされている必要があります。
 
 ### 一部のホストだけをメンテナンスにする
 

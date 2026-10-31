@@ -167,7 +167,7 @@ env -u CLOUDFLARE_API_TOKEN pnpm run deploy production
 
 ## Entering and leaving maintenance
 
-First check that the Worker is deployed in that environment, that the passphrase has been changed for this window, and that the site is currently serving normally. `status` should report that there are no maintenance routes.
+First check that the Worker is deployed in that environment, that the passphrase has been changed for this window, and that the site is currently serving normally. `status` should report that there are no maintenance routes. If there is no time to change the passphrase, see [Stopping before the passphrase is chosen (emergencies)](#stopping-before-the-passphrase-is-chosen-emergencies).
 
 ```bash
 pnpm run status production
@@ -195,6 +195,20 @@ pnpm run status production
 `status` should again report no maintenance routes. Open the site in a browser without the cookie, such as a private window, to confirm it serves normally.
 
 Webhook senders and uptime monitors also receive `503` during maintenance. Most webhook senders retry, but check their retry limits if the window is long.
+
+### Stopping before the passphrase is chosen (emergencies)
+
+When you must stop the site in a hurry, for example during an incident, you can run `on` before choosing a passphrase. The Worker reads the passphrase secret on every request, and `wrangler secret put` deploys a version with the new value right away. A passphrase registered in the middle of maintenance therefore works at once, without attaching the routes again. While no passphrase is set, nobody gets through by passphrase or cookie.
+
+```bash
+pnpm run on production
+openssl rand -hex 32
+env -u CLOUDFLARE_API_TOKEN pnpm exec wrangler secret put BYPASS_SECRET --env production
+```
+
+Once it is registered, give operators `https://<host>/?maintenance_bypass=<passphrase>`.
+
+If the passphrase from the previous window is still set, it lets people through from the moment you run `on`, including anyone who knows the old value. Replace it with a new one even when you are in a hurry. If you delete it with `wrangler secret delete BYPASS_SECRET --env production` after leaving maintenance, the next emergency also starts with nobody let through until a passphrase is registered. If `ALLOW_IPS` is not set either, operators also get the maintenance page until the passphrase is registered. In both cases the Worker must already be deployed.
 
 ### Putting only some hosts into maintenance
 
